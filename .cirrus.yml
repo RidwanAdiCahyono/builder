@@ -1,30 +1,34 @@
 env: # Environment variables to pass to all tasks
-    CIRRUS_CLONE_DEPTH: 1 # No need to clone with the whole history
-    CIRRUS_WORKING_DIR: "/tmp/ci" # Where to clone the aosp-builder repo
-
-    # For rclone with google drive or any cloud! After first commit pushing, login to https://cirrus-ci.com , click top left corner 3 dot menu, click repository(yourname/aosp-builder) > Repository Settings > Secured Variables > enter content of ~/.config/rclone/rclone.conf (from pc where you setup rclone) > ENCRYPT, copy that ENCRYPTED hash
-    # ENCRYPTED variables is unique for every repository, so you cant use my one, create you rclone config https://rclone.org/drive/#making-your-own-client-id
-    rclone_config: "ENCRYPTED[[remote]
-type = drive                                                                                                                                                                         client_id = 453714748373-ghi8rijp56me0mh46thbu6fni0v421c2.apps.googleusercontent.com
-client_secret = qSF29u843jId6FEkBLDqNCzk
-scope = drive
-root_folder_id = 1uGXnjwtwapSJ_ZsxUAKQHMuQjgLaI1hW
-<gYIARAAGBASNwF-L9IrB6bs2krcMCXpgpSc7PlhB6Oe3SxzYMnyTfpG4vIIe4dl6-7AzwpwiMbobX0BbzsltNQ","expiry":"2021-08-06T09:55:15.373510966Z"}]"
+    CIRRUS_CLONE_DEPTH: 1
+    CIRRUS_WORKING_DIR: "/tmp/ci"
+    rclone_config: "ENCRYPTED[aba8cc7c492ddfc8ac24e8131de7d088b552d7878a1b1b8737dd4e284b7a289aad2dfe5a4db70ab4dda84080c471111e]"
+    bot_api: "ENCRYPTED[f200c3ff20251c1c2eb9fcb192c26a367e83a21bd64ca93cc97d4a06bc16c843636d19ded2fe63588f81d4718a9e9bd5]"
 
 task:
-    name: aosp # Project name
-    timeout_in: 120m # Otherwise it will timeout at 60m automatically, 120m highest in free account
+    name: Rimuru # Project name
+    timeout_in: 120m
     container:
-      image: apon77/aosp:latest # It has built-in setup environment + repo, aria2, rclone, pigz, username ci, and email ci@ci.ci [You can use your own docker image if you want, or you can use this one too!]
-      cpu: 8  #8 or less cpu for dummy build, 8 cpu for the final build, 8cpu highest for free accounts. Don't try to use more than 8cpu as free user, you may get blocked by ci.
-      memory: 32G # So that we can have ram when needed, 32G highest
-    download_ccache_background_script: # To download ccache in background
-      - ./download_ccache # Ccache download script
-    sync_script: # To sync source
-      - ./sync # Source sync script
-    monitor_background_script: # To monitor ccache and machine status every minute, runs in background
-      - ./monitor # Monitor script
-    build_script: # Actual build script foreground
-      - ./build # Build script to run
-    upload_ccache_script: # Upload ccache to cloud foreground
-      - ./upload_ccache # Ccache uploading script
+      image: RidwanAdiCahyono/build:latest
+      cpu: 8
+      memory: 32G
+
+    rclone_setup_script:
+      - mkdir -p ~/.config/rclone
+      - echo "$rclone_config" > ~/.config/rclone/rclone.conf
+    download_ccache_background_script:
+      - curl -s "https://api.telegram.org/bot${bot_api}/sendmessage" --data "text=Download ccache at $(date)&chat_id=${tg_id}&parse_mode=html"
+      - df -h && free -h && nproc && cat /etc/os* && env
+      - rclone copy ItoRenz:Rimuru/ccache.tar.gz /tmp -P
+      - cd /tmp
+      - time tar xf ccache.tar.gz
+      - rm -rf ccache.tar.gz
+      - mkdir -p /tmp/rom
+      - cd /tmp/rom
+    sync_script:
+      - ./sync
+    monitor_background_script:
+      - ./monitor
+    build_script:
+      - ./build
+    upload_ccache_script:
+      - ./upload_ccache
